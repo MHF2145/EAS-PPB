@@ -1,0 +1,75 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Sun with rays (centered) -->
+    <group android:translateX="54" android:translateY="54">
+        <path
+            android:fillColor="#FFEB3B"
+            android:pathData="M0,-20a20,20 0 1,1 0,40a20,20 0 1,1 0,-40z"/>
+
+        <!-- Sun rays -->
+        <group>
+            <path
+                android:fillColor="#FFEB3B"
+                android:pathData="M0,-38l0,8a4,4 0 0,1 0,8l0,8"
+                android:strokeWidth="6"
+                android:strokeColor="#FFEB3B"/>
+            <path
+                android:fillColor="#FFEB3B"
+                android:pathData="M27,-27l-6,6a4,4 0 0,1 -6,6l-6,6"
+                android:strokeWidth="6"
+                android:strokeColor="#FFEB3B"/>
+            <path
+                android:fillColor="#FFEB3B"
+                android:pathData="M38,0l-8,0a4,4 0 0,1 -8,0l-8,0"
+                android:strokeWidth="6"
+                android:strokeColor="#FFEB3B"/>
+            <path
+                android:fillColor="#FFEB3B"
+                android:pathData="M27,27l-6,-6a4,4 0 0,1 -6,-6l-6,-6"
+                android:strokeWidth="6"
+                android:strokeColor="#FFEB3B"/>
+            <path
+                android:fillColor="#FFEB3B"
+                android:pathData="M0,38l0,-8a4,4 0 0,1 0,-8l0,-8"
+                android:strokeWidth="6"
+                android:strokeColor="#FFEB3B"/>
+            <path
+                android:fillColor="#FFEB3B"
+                android:pathData="M-27,27l6,-6a4,4 0 0,1 6,-6l6,-6"
+                android:strokeWidth="6"
+                android:strokeColor="#FFEB3B"/>
+            <path
+                android:fillColor="#FFEB3B"
+                android:pathData="M-38,0l8,0a4,4 0 0,1 8,0l8,0"
+                android:strokeWidth="6"
+                android:strokeColor="#FFEB3B"/>
+            <path
+                android:fillColor="#FFEB3B"
+                android:pathData="M-27,-27l6,6a4,4 0 0,1 6,6l6,6"
+                android:strokeWidth="6"
+                android:strokeColor="#FFEB3B"/>
+        </group>
+    </group>
+
+    <!-- Smaller cloud -->
+    <path
+        android:fillColor="#E0E0E0"
+        android:pathData="M25,65c-8,0 -15,-6 -15,-14c0,-6 4,-12 10,-14c2,-8 9,-14 17,-14c7,0 14,5 16,12c6,1 11,6 11,13c0,7 -6,13 -13,13l-26,0z"
+        android:strokeColor="#B3FFFFFF"
+        android:strokeWidth="1"/>
+
+    <!-- More contrasting raindrops (darker blue) -->
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M38,78a2,4 0 1,1 0,8a2,4 0 1,1 0,-8z"/>
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M48,83a2,4 0 1,1 0,8a2,4 0 1,1 0,-8z"/>
+    <path
+        android:fillColor="#1565C0"
+        android:pathData="M58,78a2,4 0 1,1 0,8a2,4 0 1,1 0,-8z"/>
+</vector>
