@@ -2,12 +2,15 @@ package com.example.catashtope
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -30,21 +33,101 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.time.LocalTime
 import java.util.*
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.catashtope.model.ToDo
+import com.example.catashtope.ToDoViewModel
+import com.example.catashtope.repository.TouristSpotRepository
+import com.example.catashtope.ui.ToDoDetailPage
+import com.example.catashtope.ui.ToDoFormPage
+import com.example.catashtope.ui.ToDoListPage
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val weatherViewModel: WeatherViewModel by viewModels()
-
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             var isDarkTheme by remember { mutableStateOf(false) }
             CatashtopeTheme(darkTheme = isDarkTheme) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
-                    WeatherScreen(weatherViewModel, isDarkTheme) {
-                        isDarkTheme = !isDarkTheme
+                val navController = rememberNavController()
+                val items = listOf(
+                    Screen.Weather,
+                    Screen.ToDoList
+                )
+                val toDoViewModel: ToDoViewModel = viewModel()
+                Scaffold(
+                    bottomBar = {
+                        BottomNavigationBar(navController = navController, items = items)
+                    },
+                    floatingActionButton = {
+                        if (navController.currentBackStackEntryAsState().value?.destination?.route == Screen.ToDoList.route) {
+                            FloatingActionButton(onClick = {
+                                navController.navigate("todo_add")
+                            }) { Text("+") }
+                        }
+                    }
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = Screen.Weather.route,
+                        modifier = Modifier.padding(innerPadding)
+                    ) {
+                        composable(Screen.Weather.route) {
+                            WeatherScreen(weatherViewModel, isDarkTheme) {
+                                isDarkTheme = !isDarkTheme
+                            }
+                        }
+                        composable(Screen.ToDoList.route) {
+                            ToDoListPage(
+                                toDoViewModel = toDoViewModel,
+                                onToDoClick = { id ->
+                                    toDoViewModel.selectToDo(id)
+                                    navController.navigate("todo_detail/$id")
+                                }
+                            )
+                        }
+                        composable("todo_add") {
+                            ToDoFormPage(
+                                toDoViewModel = toDoViewModel,
+                                onDone = { navController.popBackStack() },
+                                isEdit = false
+                            )
+                        }
+                        composable("todo_detail/{id}") { backStackEntry ->
+                            val id = backStackEntry.arguments?.getString("id") ?: ""
+                            val todo = toDoViewModel.todos.find { it.id == id }
+                            if (todo != null) {
+                                ToDoDetailPage(
+                                    todo = todo,
+                                    onEdit = {
+                                        navController.navigate("todo_edit/$id")
+                                    },
+                                    onDelete = {
+                                        toDoViewModel.deleteToDo(id)
+                                        navController.popBackStack()
+                                    },
+                                    onBack = { navController.popBackStack() }
+                                )
+                            }
+                        }
+                        composable("todo_edit/{id}") { backStackEntry ->
+                            val id = backStackEntry.arguments?.getString("id") ?: ""
+                            val todo = toDoViewModel.todos.find { it.id == id }
+                            if (todo != null) {
+                                ToDoFormPage(
+                                    toDoViewModel = toDoViewModel,
+                                    onDone = { navController.popBackStack() },
+                                    isEdit = true,
+                                    existingToDo = todo
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -52,6 +135,36 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+sealed class Screen(val route: String, val label: String) {
+    object Weather : Screen("weather", "Weather")
+    object ToDoList : Screen("todo", "Plan Trip")
+}
+
+@Composable
+fun BottomNavigationBar(navController: NavHostController, items: List<Screen>) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    NavigationBar {
+        items.forEach { screen ->
+            NavigationBarItem(
+                selected = currentRoute == screen.route,
+                onClick = {
+                    if (currentRoute != screen.route) {
+                        navController.navigate(screen.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                },
+                label = { Text(screen.label) },
+                icon = {}
+            )
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.O)
 @Composable
 fun WeatherScreen(viewModel: WeatherViewModel, isDarkTheme: Boolean, onToggleTheme: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
