@@ -10,7 +10,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -39,13 +38,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.catashtope.model.ToDo
-import com.example.catashtope.ToDoViewModel
-import com.example.catashtope.repository.TouristSpotRepository
+import com.example.catashtope.api.PexelsApi
+import com.example.catashtope.ui.ChatbotScreen
 import com.example.catashtope.ui.ToDoDetailPage
 import com.example.catashtope.ui.ToDoFormPage
 import com.example.catashtope.ui.ToDoListPage
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val weatherViewModel: WeatherViewModel by viewModels()
@@ -58,7 +55,8 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val items = listOf(
                     Screen.Weather,
-                    Screen.ToDoList
+                    Screen.ToDoList,
+                    Screen.Chatbot
                 )
                 val toDoViewModel: ToDoViewModel = viewModel()
                 Scaffold(
@@ -128,6 +126,9 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                         }
+                        composable("chatbot") {
+                            ChatbotScreen(onNavigateBack = { navController.popBackStack() })
+                        }
                     }
                 }
             }
@@ -138,6 +139,7 @@ class MainActivity : ComponentActivity() {
 sealed class Screen(val route: String, val label: String) {
     object Weather : Screen("weather", "Weather")
     object ToDoList : Screen("todo", "Plan Trip")
+    object Chatbot : Screen("chatbot", "Chatbot")
 }
 
 @Composable
@@ -198,11 +200,12 @@ fun WeatherScreen(viewModel: WeatherViewModel, isDarkTheme: Boolean, onToggleThe
     }
 
 
+
     LaunchedEffect(shouldFetchImage, city) {
         if (shouldFetchImage) {
             try {
                 val response = PexelsApi.service.searchPhotos(
-                    apiKey = "5qZTnjJTJWInzU04Cr96gO427hhF53INCiZBBPs07C5gdaDRFzCyaHkw",
+                    apiKey = BuildConfig.PEXELS_API_KEY,
                     query = "$city landscape"
                 )
                 if (response.isSuccessful) {
@@ -534,5 +537,15 @@ fun ErrorView(message: String, onRetry: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = onRetry) { Text("Coba Lagi") }
+    }
+}
+
+@Composable
+fun NavigationGraph(navController: NavHostController) {
+    NavHost(navController = navController, startDestination = "chatbot") {
+        composable("chatbot") {
+            ChatbotScreen(onNavigateBack = { navController.popBackStack() })
+        }
+        // Add other destinations here
     }
 }

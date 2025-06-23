@@ -1,9 +1,13 @@
+import java.util.Properties
+import java.io.File
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.devtools.ksp")
-
+    id("com.google.dagger.hilt.android") version "2.44"
+    id("org.jetbrains.kotlin.kapt")
 }
 
 android {
@@ -17,7 +21,15 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        val localProperties = Properties().apply {
+            File(rootDir, "local.properties").inputStream().use { load(it) }
+        }
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        val geoapifyApiKey = localProperties.getProperty("GEOAPIFY_API_KEY") as? String
+        val pexelsApiKey = localProperties.getProperty("PEXELS_API_KEY") as? String
+        buildConfigField("String", "GEOAPIFY_API_KEY", "\"${geoapifyApiKey ?: ""}\"")
+        buildConfigField("String", "PEXELS_API_KEY", "\"${pexelsApiKey ?: ""}\"")
     }
 
     buildTypes {
@@ -38,6 +50,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -52,6 +65,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.datastore.core.android)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -72,4 +86,11 @@ dependencies {
     implementation("org.osmdroid:osmdroid-android:6.1.16")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
     implementation("androidx.activity:activity-compose:1.8.2")
+    implementation("com.google.dagger:hilt-android:2.44")
+    kapt("com.google.dagger:hilt-compiler:2.44")
+    implementation("androidx.hilt:hilt-navigation-compose:1.0.0")
+}
+
+kapt {
+    correctErrorTypes = true
 }

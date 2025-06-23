@@ -48,3 +48,32 @@ data class CurrentWeatherUnits(
     @SerializedName("is_day")
     val isDay: String
 )
+
+// Add for daily forecast
+data class DailyForecastResponse(
+    val latitude: Double,
+    val longitude: Double,
+    val daily: DailyForecastData,
+    @SerializedName("daily_units")
+    val dailyUnits: DailyForecastUnits
+)
+
+data class DailyForecastData(
+    val time: List<String>,
+    @SerializedName("temperature_2m_max")
+    val temperatureMax: List<Double>,
+    @SerializedName("temperature_2m_min")
+    val temperatureMin: List<Double>,
+    @SerializedName("precipitation_sum")
+    val precipitationSum: List<Double>
+)
+
+data class DailyForecastUnits(
+    val time: String,
+    @SerializedName("temperature_2m_max")
+    val temperatureMax: String,
+    @SerializedName("temperature_2m_min")
+    val temperatureMin: String,
+    @SerializedName("precipitation_sum")
+    val precipitationSum: String
+)

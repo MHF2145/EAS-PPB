@@ -1,4 +1,4 @@
-package com.example.catashtope
+package com.example.catashtope.api
 
 import retrofit2.Response
 import retrofit2.http.GET

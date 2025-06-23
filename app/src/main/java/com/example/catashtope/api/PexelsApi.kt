@@ -1,4 +1,4 @@
-package com.example.catashtope
+package com.example.catashtope.api
 
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory

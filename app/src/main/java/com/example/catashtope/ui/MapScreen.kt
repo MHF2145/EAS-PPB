@@ -22,13 +22,22 @@ import org.osmdroid.config.Configuration
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.example.catashtope.repository.TouristSpot
+import com.example.catashtope.repository.TouristSpotRepository
 
-@SuppressLint("MissingPermission")
+@SuppressLint("MissingPermission", "ClickableViewAccessibility")
 @Composable
 fun MapScreen(
     onLocationSelected: (latitude: Double, longitude: Double, name: String?) -> Unit,
     showBack: Boolean = false,
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
+    initialLatitude: Double? = null,
+    initialLongitude: Double? = null,
+    markerName: String? = null,
+    readOnly: Boolean = false
 ) {
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
@@ -36,9 +45,29 @@ fun MapScreen(
     var marker by remember { mutableStateOf<Marker?>(null) }
     var selectedName by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    var searchResults by remember { mutableStateOf<List<TouristSpot>>(emptyList()) }
+    var showResults by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         Configuration.getInstance().load(context, context.getSharedPreferences("osmdroid", Context.MODE_PRIVATE))
+    }
+
+    // Set initial marker and center if provided
+    LaunchedEffect(initialLatitude, initialLongitude, markerName) {
+        val map = mapView
+        if (map != null && initialLatitude != null && initialLongitude != null) {
+            map.controller.setZoom(15.0)
+            map.controller.setCenter(GeoPoint(initialLatitude, initialLongitude))
+            marker?.let { map.overlays.remove(it) }
+            val newMarker = Marker(map).apply {
+                position = GeoPoint(initialLatitude, initialLongitude)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                title = markerName ?: "Selected Location"
+            }
+            map.overlays.add(newMarker)
+            marker = newMarker
+            selectedName = markerName
+        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -50,113 +79,124 @@ fun MapScreen(
                     controller.setZoom(5.0)
                     controller.setCenter(GeoPoint(-2.5489, 118.0149)) // Center on Indonesia
                     layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
-                    // Map is draggable and zoomable by default with setMultiTouchControls(true)
                 }.also { mapView = it }
             },
             modifier = Modifier.fillMaxSize(),
             update = { map ->
-                map.overlays.removeAll { it is Marker }
-                map.setOnTouchListener { v, event ->
-                    if (event.action == android.view.MotionEvent.ACTION_UP) {
-                        val proj = map.projection
-                        val geoPoint = proj.fromPixels(event.x.toInt(), event.y.toInt()) as GeoPoint
-                        marker?.let { map.overlays.remove(it) }
-                        val newMarker = Marker(map).apply {
-                            position = geoPoint
-                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                            title = "Selected Location"
+                if (!readOnly) {
+                    map.overlays.removeAll { it is Marker }
+                    map.setOnTouchListener { v, event ->
+                        if (event.action == android.view.MotionEvent.ACTION_UP) {
+                            val proj = map.projection
+                            val geoPoint = proj.fromPixels(event.x.toInt(), event.y.toInt()) as GeoPoint
+                            marker?.let { map.overlays.remove(it) }
+                            val newMarker = Marker(map).apply {
+                                position = geoPoint
+                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                title = "Selected Location"
+                            }
+                            map.overlays.add(newMarker)
+                            marker = newMarker
+                            selectedName = null
+                            v.performClick()
                         }
-                        map.overlays.add(newMarker)
-                        marker = newMarker
-                        selectedName = null
-                        v.performClick()
+                        false
                     }
-                    false
+                } else {
+                    // Disable touch in readOnly mode
+                    map.setOnTouchListener { _, _ -> true }
                 }
             }
         )
 
-        // Overlay: Search bar at the top
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .align(Alignment.TopCenter)
-        ) {
-            if (showBack && onBack != null) {
-                Button(
-                    onClick = onBack,
-                    modifier = Modifier.align(Alignment.Start)
-                ) {
-                    Text("← Back")
+        if (!readOnly) {
+            // Overlay: Search bar at the top
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .align(Alignment.TopCenter)
+            ) {
+                if (showBack && onBack != null) {
+                    Button(
+                        onClick = onBack,
+                        modifier = Modifier.align(Alignment.Start)
+                    ) {
+                        Text("← Back")
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        showResults = it.isNotBlank()
+                        coroutineScope.launch {
+                            searchResults = TouristSpotRepository.fetchTouristSpots(it)
+                        }
+                    },
+                    label = { Text("Search location") },
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Spacer(Modifier.height(8.dp))
-            }
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                label = { Text("Search location") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(8.dp))
-            Row {
-                Button(
-                    onClick = {
-                        if (searchQuery.isNotBlank()) {
-                            val map = mapView
-                            if (map != null) {
-                                coroutineScope.launch {
-                                    val result = geocodeLocation(searchQuery)
-                                    result?.let { (lat, lon, name) ->
-                                        map.controller.setZoom(15.0)
-                                        map.controller.setCenter(GeoPoint(lat, lon))
-                                        marker?.let { map.overlays.remove(it) }
-                                        val newMarker = Marker(map).apply {
-                                            position = GeoPoint(lat, lon)
-                                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                                            title = name
+                if (showResults && searchResults.isNotEmpty()) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 200.dp)
+                    ) {
+                        items(searchResults) { spot ->
+                            Text(
+                                text = spot.name,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val map = mapView
+                                        if (map != null) {
+                                            map.controller.setZoom(15.0)
+                                            map.controller.setCenter(GeoPoint(spot.latitude, spot.longitude))
+                                            marker?.let { map.overlays.remove(it) }
+                                            val newMarker = Marker(map).apply {
+                                                position = GeoPoint(spot.latitude, spot.longitude)
+                                                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                                                title = spot.name
+                                            }
+                                            map.overlays.add(newMarker)
+                                            marker = newMarker
+                                            selectedName = spot.name
+                                            showResults = false
+                                            searchQuery = spot.name
                                         }
-                                        map.overlays.add(newMarker)
-                                        marker = newMarker
-                                        selectedName = name
                                     }
-                                }
-                            }
+                                    .padding(8.dp)
+                            )
                         }
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Search")
+                    }
+                    Spacer(Modifier.height(8.dp))
                 }
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = {
-                        marker?.position?.let {
-                            onLocationSelected(it.latitude, it.longitude, selectedName)
-                        }
-                    },
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text("Select this location")
+                Row {
+                    Button(
+                        onClick = {
+                            // No-op: search is now live as user types
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = false // Disabled, as search is live
+                    ) {
+                        Text("Search")
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            marker?.position?.let {
+                                onLocationSelected(it.latitude, it.longitude, selectedName)
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Select this location")
+                    }
                 }
             }
         }
-    }
-}
-
-suspend fun geocodeLocation(query: String): Triple<Double, Double, String>? = withContext(Dispatchers.IO) {
-    try {
-        val url = "https://nominatim.openstreetmap.org/search?q=" + URLEncoder.encode(query, "UTF-8") + "&format=json&limit=1"
-        val response = URL(url).readText()
-        val jsonArray = org.json.JSONArray(response)
-        if (jsonArray.length() > 0) {
-            val obj = jsonArray.getJSONObject(0)
-            val lat = obj.getDouble("lat")
-            val lon = obj.getDouble("lon")
-            val displayName = obj.getString("display_name")
-            Triple(lat, lon, displayName)
-        } else null
-    } catch (e: Exception) {
-        null
     }
 }

@@ -18,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.catashtope.ToDoViewModel
 import com.example.catashtope.model.ToDo
+import com.example.catashtope.repository.TouristSpot
 import com.example.catashtope.repository.TouristSpotRepository
 import java.util.Calendar
 import kotlinx.coroutines.launch
@@ -36,7 +37,7 @@ fun ToDoFormPage(
     var date by remember { mutableStateOf(existingToDo?.date ?: "") }
     var tempatWisata by remember { mutableStateOf(existingToDo?.tempatWisata ?: "") }
     var tempatQuery by remember { mutableStateOf("") }
-    var tempatSuggestions by remember { mutableStateOf(listOf<String>()) }
+    var tempatSuggestions: List<TouristSpot> by remember { mutableStateOf(listOf<TouristSpot>()) }
     val context = LocalContext.current
     val calendar = remember { Calendar.getInstance() }
 
@@ -91,82 +92,95 @@ fun ToDoFormPage(
             }) { Text("Save") }
         }
     ) { innerPadding ->
-        if (showMap) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            ) {
-                MapScreen(
-                    onLocationSelected = { lat, lon, name ->
-                        latitude = lat
-                        longitude = lon
-                        locationName = name ?: ""
-                        showMap = false
-                    },
-                    showBack = true,
-                    onBack = { showMap = false }
-                )
-            }
-        } else {
-            Column(Modifier.padding(innerPadding).padding(24.dp)) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Trip Title") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = date,
-                    onValueChange = {},
-                    label = { Text("Date") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showDatePicker = true },
-                    readOnly = true,
-                    trailingIcon = {
-                        IconButton(onClick = { showDatePicker = true }) {
-                            Icon(
-                                imageVector = Icons.Default.DateRange,
-                                contentDescription = "Pick date"
+        Column(Modifier.padding(innerPadding).padding(24.dp)) {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Trip Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(
+                value = date,
+                onValueChange = {},
+                label = { Text("Date") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true },
+                readOnly = true,
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Pick date"
+                        )
+                    }
+                }
+            )
+            Spacer(Modifier.height(16.dp))
+            OutlinedTextField(
+                value = tempatQuery,
+                onValueChange = {
+                    tempatQuery = it
+                    tempatWisata = it
+                    // Reset coordinates when user types a new query
+                    latitude = null
+                    longitude = null
+                    locationName = ""
+                },
+                label = { Text("Tempat Wisata (search)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (tempatSuggestions.isNotEmpty()) {
+                Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    Column {
+                        tempatSuggestions.take(5).forEach { suggestion ->
+                            Text(
+                                suggestion.name,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        tempatWisata = suggestion.name
+                                        tempatQuery = suggestion.name
+                                        // Sync coordinates and locationName from suggestion
+                                        latitude = suggestion.latitude
+                                        longitude = suggestion.longitude
+                                        locationName = suggestion.name
+                                    }
+                                    .padding(8.dp)
                             )
                         }
                     }
-                )
-                Spacer(Modifier.height(16.dp))
-                OutlinedTextField(
-                    value = tempatQuery,
-                    onValueChange = {
-                        tempatQuery = it
-                        tempatWisata = it
-                    },
-                    label = { Text("Tempat Wisata (search)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (tempatSuggestions.isNotEmpty()) {
-                    Card(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        Column {
-                            tempatSuggestions.take(5).forEach { suggestion ->
-                                Text(
-                                    suggestion,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            tempatWisata = suggestion
-                                            tempatQuery = suggestion
-                                        }
-                                        .padding(8.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-                Button(onClick = { showMap = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (latitude != null && longitude != null) "Location Selected: $latitude, $longitude" else "Pick Location on Map")
                 }
             }
+            Spacer(Modifier.height(16.dp))
+            Button(onClick = { showMap = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (latitude != null && longitude != null) "Location Selected: $latitude, $longitude" else "Pick Location on Map")
+            }
+        }
+    }
+    // Sync map selection with search fields
+    if (showMap) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+        ) {
+            MapScreen(
+                onLocationSelected = { lat, lon, name ->
+                    latitude = lat
+                    longitude = lon
+                    locationName = name ?: ""
+                    // Sync search fields with map selection
+                    if (!name.isNullOrBlank()) {
+                        tempatQuery = name
+                        tempatWisata = name
+                    }
+                    showMap = false
+                },
+                showBack = true,
+                onBack = { showMap = false }
+            )
         }
     }
 }
