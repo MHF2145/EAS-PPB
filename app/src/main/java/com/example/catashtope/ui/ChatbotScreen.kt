@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -27,6 +26,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.catashtope.ChatMessage
 import com.example.catashtope.ChatbotEvent
 import com.example.catashtope.ChatbotViewModel
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.platform.LocalUriHandler
 
 @OptIn(ExperimentalMaterial3Api::class)
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
@@ -39,6 +48,7 @@ fun ChatbotScreen(
     var textState by remember { mutableStateOf(TextFieldValue("")) }
     val coroutineScope = rememberCoroutineScope()
     val listState = rememberLazyListState()
+    val isThinking by viewModel.isThinking.collectAsState()
 
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
@@ -55,7 +65,7 @@ fun ChatbotScreen(
                 SuggestedReplies(
                     suggestions = listOf(
                         "Hello!", "What can you help me with?",
-                        "Tell me about natural disasters",
+                        "Tell me about destination in jawa",
                         "Emergency procedures"
                     ),
                     onSuggestionClick = { suggestion ->
@@ -66,7 +76,7 @@ fun ChatbotScreen(
                     text = textState,
                     onTextChange = { textState = it },
                     onSendClick = {
-                        if (textState.text.isNotBlank()) {
+                        if (textState.text.isNotBlank() && !isThinking) {
                             viewModel.onEvent(ChatbotEvent.SendMessage(textState.text))
                             textState = TextFieldValue("")
                             coroutineScope.launch {
@@ -78,16 +88,28 @@ fun ChatbotScreen(
             }
         }
     ) { paddingValues ->
-        LazyColumn(
-            state = listState,
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(paddingValues)
         ) {
-            items(messages) { message ->
-                MessageItem(message = message)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(messages) { message ->
+                    MessageItem(message = message)
+                }
+                // Show Chika is thinking indicator
+                if (isThinking) {
+                    item {
+                        ThinkingIndicator()
+                    }
+                }
             }
         }
     }
@@ -120,7 +142,7 @@ fun ChatTopBar(onNavigateBack: () -> Unit) {
                     .padding(start = 16.dp)
             ) {
                 Text(
-                    text = "Disaster Response Bot",
+                    text = "Chika - Your Travel Assistant",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium
                 )
@@ -147,6 +169,8 @@ fun MessageItem(message: ChatMessage) {
     else
         MaterialTheme.colorScheme.onSecondaryContainer
 
+    val uriHandler = LocalUriHandler.current
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -163,12 +187,88 @@ fun MessageItem(message: ChatMessage) {
             color = backgroundColor,
             modifier = Modifier.widthIn(max = 340.dp)
         ) {
-            Text(
-                text = message.text,
+            ClickableText(
+                text = formatMessage(message.text, textColor),
                 modifier = Modifier.padding(12.dp),
-                color = textColor,
-                style = MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.bodyLarge.copy(color = textColor),
+                onClick = { offset ->
+                    val annotatedString = formatMessage(message.text, textColor)
+                    annotatedString.getStringAnnotations("URL", offset, offset)
+                        .firstOrNull()?.let { annotation ->
+                            uriHandler.openUri(annotation.item)
+                        }
+                }
             )
+        }
+    }
+}
+
+// Formatting function for markdown-like syntax
+fun formatMessage(text: String, textColor: Color): AnnotatedString {
+    return buildAnnotatedString {
+        var i = 0
+        while (i < text.length) {
+            when {
+                // Bold: **text**
+                text.startsWith("**", i) -> {
+                    val end = text.indexOf("**", i + 2)
+                    if (end != -1) {
+                        withStyle(SpanStyle(fontWeight = FontWeight.Bold, color = textColor)) {
+                            append(text.substring(i + 2, end))
+                        }
+                        i = end + 2
+                    } else {
+                        append(text.substring(i))
+                        break
+                    }
+                }
+                // Italic: *text*
+                text.startsWith("*", i) -> {
+                    val end = text.indexOf("*", i + 1)
+                    if (end != -1) {
+                        withStyle(SpanStyle(fontStyle = FontStyle.Italic, color = textColor)) {
+                            append(text.substring(i + 1, end))
+                        }
+                        i = end + 1
+                    } else {
+                        append(text.substring(i))
+                        break
+                    }
+                }
+                // Link: [text](url)
+                text.startsWith("[", i) -> {
+                    val closeBracket = text.indexOf("]", i)
+                    val openParen = text.indexOf("(", closeBracket)
+                    val closeParen = text.indexOf(")", openParen)
+                    if (closeBracket != -1 && openParen == closeBracket + 1 && closeParen != -1) {
+                        val label = text.substring(i + 1, closeBracket)
+                        val url = text.substring(openParen + 1, closeParen)
+                        pushStringAnnotation(tag = "URL", annotation = url)
+                        withStyle(
+                            SpanStyle(
+                                color = Color(0xFF1976D2),
+                                textDecoration = TextDecoration.Underline
+                            )
+                        ) {
+                            append(label)
+                        }
+                        pop()
+                        i = closeParen + 1
+                    } else {
+                        append(text[i])
+                        i++
+                    }
+                }
+                // Line break: \n
+                text[i] == '\n' -> {
+                    append("\n")
+                    i++
+                }
+                else -> {
+                    append(text[i])
+                    i++
+                }
+            }
         }
     }
 }
@@ -256,6 +356,38 @@ fun SuggestedReplies(
                     labelColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
             )
+        }
+    }
+}
+
+@Composable
+fun ThinkingIndicator() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.Start
+    ) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            modifier = Modifier.widthIn(max = 200.dp)
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Chika is thinking...",
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
         }
     }
 }
