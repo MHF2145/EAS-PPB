@@ -4,7 +4,7 @@
 
 **Aplikasi Cuaca & Perencana Perjalanan Berbasis Android**
 
-[![Release](https://img.shields.io/badge/Release-v0.2.0-blue)](https://github.com/MHF2145/PPB-Assignment-2025/releases/tag/v0.2.0)
+[![Release](https://img.shields.io/badge/Release-v0.2.0-blue)][(https://github.com/MHF2145/PPB-Assignment-2025/releases/tag/v0.2.0)](https://github.com/MHF2145/EAS-PPB/releases/tag/v0.2.0)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ## 📱 Gambaran Umum
